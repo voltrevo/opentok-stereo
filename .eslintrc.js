@@ -1,6 +1,10 @@
 module.exports = {
-    "extends": "airbnb-base",
-    "plugins": [
-        "import"
-    ]
+  extends: 'airbnb-base',
+  parserOptions: {
+    sourceType: 'script',
+  },
+  env: {
+    node: true,
+    browser: true,
+  },
 };
