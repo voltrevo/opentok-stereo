@@ -27,45 +27,52 @@ function SubscriberAudioPlayer(subscriber) {
 function SubscriberGroup() {
   const group = {};
 
-  const members = [];
+  const subscribers = [];
+  const playerMap = new WeakMap();
 
   group.add = (subscriber) => {
-    const index = members.indexOf(subscriber);
+    const index = subscribers.indexOf(subscriber);
 
     if (index !== -1) {
       return;
     }
 
-    members.push(SubscriberAudioPlayer(subscriber));
+    if (!(subscriber.element && subscriber.element.querySelector('video'))) {
+      subscriber.on('videoElementCreated', () => group.add(subscriber));
+      return;
+    }
+
+    subscribers.push(subscriber);
+    playerMap.set(subscriber, SubscriberAudioPlayer(subscriber));
     subscriber.on('destroyed', () => group.remove(subscriber));
     group.update();
   };
 
   group.remove = (subscriber) => {
-    const index = members.indexOf(subscriber);
+    const index = subscribers.indexOf(subscriber);
 
     if (index === -1) {
       return;
     }
 
-    members.splice(index, 1);
+    subscribers.splice(index, 1);
     group.update();
   };
 
   group.update = () => {
-    if (members.length === 1) {
-      members[0].setLeftRightBalance(0.5);
-    } else if (members.length === 0) {
+    if (subscribers.length === 1) {
+      playerMap.get(subscribers[0]).setLeftRightBalance(0.5);
+    } else if (subscribers.length === 0) {
       return;
     }
 
-    const rawBalances = members.map(player => player.getDomBasedBalance());
+    const rawBalances = subscribers.map(sub => playerMap.get(sub).getDomBasedBalance());
     const least = rawBalances.reduce((x, y) => Math.min(x, y));
     const most = rawBalances.reduce((x, y) => Math.max(x, y));
 
     if (least === most) {
-      for (const member of members) {
-        member.setLeftRightBalance(0.5);
+      for (const sub of subscribers) {
+        playerMap.get(sub).setLeftRightBalance(0.5);
       }
 
       return;
@@ -74,7 +81,7 @@ function SubscriberGroup() {
     const balances = rawBalances.map(bal => (bal - least) / (most - least));
 
     for (const i of range(balances.length)) {
-      members[i].setLeftRightBalance(balances[i]);
+      playerMap.get(subscribers[i]).setLeftRightBalance(balances[i]);
     }
   };
 
@@ -105,7 +112,7 @@ function SessionGroup(session, watchPeriod = 100) {
   return group;
 }
 
-return {
+module.exports = {
   SubscriberAudioPlayer,
   SubscriberGroup,
   SessionGroup,
